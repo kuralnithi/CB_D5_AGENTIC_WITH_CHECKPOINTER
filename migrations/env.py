@@ -28,12 +28,23 @@ if config.config_file_name is not None:
 # ✅ KEY FIX: Inject DATABASE_URL at runtime using set_main_option().
 # This bypasses alembic.ini's ConfigParser interpolation, which breaks
 # on '%' characters in passwords (e.g. URL-encoded '@' = '%40').
-raw_url = os.environ.get("DATABASE_URL", "")
-# Use psycopg v3 driver (already installed as psycopg[binary]).
-# psycopg2-binary has no Python 3.14 wheel so we use the modern psycopg dialect.
-db_url = raw_url.replace("postgresql://", "postgresql+psycopg://")
+raw_url = os.environ.get("DATABASE_URL", "").strip()
+
+# Handle both 'postgres://' and 'postgresql://' prefixes.
+# Also ensure we are using the 'psycopg' (v3) driver dialect.
+if raw_url.startswith("postgres://"):
+    db_url = raw_url.replace("postgres://", "postgresql+psycopg://", 1)
+elif raw_url.startswith("postgresql://"):
+    db_url = raw_url.replace("postgresql://", "postgresql+psycopg://", 1)
+else:
+    db_url = raw_url
+
 # ConfigParser interprets '%' as interpolation syntax — escape it.
 db_url_escaped = db_url.replace("%", "%%")
+
+# Debug: Print the transformed URL prefix (safe for logs)
+print(f"[alembic] Using database dialect: {db_url.split(':', 1)[0]}")
+
 config.set_main_option("sqlalchemy.url", db_url_escaped)
 
 target_metadata = None
