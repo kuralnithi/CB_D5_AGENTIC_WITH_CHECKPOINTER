@@ -9,18 +9,26 @@ from app.core.config import settings
 
 class Database:
     def __init__(self, dsn: str):
+        # Neon serverless drops idle SSL connections aggressively.
+        # We inject TCP keepalive parameters directly into the DSN string
+        # (psycopg3 reads them from conninfo, not from kwargs).
+        neon_safe_dsn = dsn
+        if "keepalives" not in dsn:
+            sep = "&" if "?" in dsn else "?"
+            neon_safe_dsn = (
+                f"{dsn}{sep}"
+                "keepalives=1"
+                "&keepalives_idle=30"
+                "&keepalives_interval=10"
+                "&keepalives_count=5"
+            )
+
         self._pool = AsyncConnectionPool(
-            conninfo=dsn,
-            max_size=20,
-            min_size=1,  # Lower minimum so we don't hoard stale connections
-            max_idle=60.0,  # Recycle connections that are idle for 60 seconds
-            max_lifetime=300.0,  # Force disconnect after 5 minutes (prevents Neon proxy drops)
-            kwargs={
-                "keepalives": 1,
-                "keepalives_idle": 30,
-                "keepalives_interval": 10,
-                "keepalives_count": 5
-            },
+            conninfo=neon_safe_dsn,
+            max_size=10,
+            min_size=1,
+            max_idle=60.0,    # Recycle connections idle for > 60s before Neon drops them
+            max_lifetime=300.0,  # Force-recycle after 5 minutes
             timeout=30.0,
             open=False  # Don't open it immediately
         )
