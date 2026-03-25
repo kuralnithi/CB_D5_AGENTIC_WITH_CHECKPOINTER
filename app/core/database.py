@@ -12,7 +12,15 @@ class Database:
         self._pool = AsyncConnectionPool(
             conninfo=dsn,
             max_size=20,
-            min_size=5,
+            min_size=1,  # Lower minimum so we don't hoard stale connections
+            max_idle=60.0,  # Recycle connections that are idle for 60 seconds
+            max_lifetime=300.0,  # Force disconnect after 5 minutes (prevents Neon proxy drops)
+            kwargs={
+                "keepalives": 1,
+                "keepalives_idle": 30,
+                "keepalives_interval": 10,
+                "keepalives_count": 5
+            },
             timeout=30.0,
             open=False  # Don't open it immediately
         )
