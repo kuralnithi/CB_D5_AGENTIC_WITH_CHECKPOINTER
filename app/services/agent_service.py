@@ -73,11 +73,29 @@ class FinBotService:
         # Configuration for checkpointing (persistence)
         config = {"configurable": {"thread_id": thread_id}}
         
-        # Invoke agent asynchronously
-        response = await agent.ainvoke(
-             {"messages": [HumanMessage(content=query)]},
-             config=config
-        )
+        try:
+            # Invoke agent asynchronously
+            response = await agent.ainvoke(
+                 {"messages": [HumanMessage(content=query)]},
+                 config=config
+            )
+        except Exception as e:
+            # LangGraph throws errors if the previous chat history is stuck 
+            # waiting for a ToolMessage (e.g., if a tool timed out previously).
+            # "Found AIMessages with tool_calls that do not have a corresponding ToolMessage"
+            if "ToolMessage" in str(e) or "INVALID_CHAT_HISTORY" in str(e):
+                import uuid
+                print(f"[Warning] Corrupted thread '{thread_id}'. Starting fresh thread.")
+                # Auto-heal by creating a fresh thread for this request
+                fresh_thread_id = f"{thread_id}_rescue_{uuid.uuid4().hex[:8]}"
+                config = {"configurable": {"thread_id": fresh_thread_id}}
+                response = await agent.ainvoke(
+                     {"messages": [HumanMessage(content=query)]},
+                     config=config
+                )
+            else:
+                # Re-raise if it's an unrelated error
+                raise e
         
         # The last AI message contains the analysis result.
         return response["messages"][-1].content

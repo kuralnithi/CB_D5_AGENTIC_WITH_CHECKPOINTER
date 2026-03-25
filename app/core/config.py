@@ -11,11 +11,12 @@ except ImportError:
     pass
 
 class Settings(BaseSettings):
-    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
-    SERPAPI_API_KEY: str = os.getenv("SERPAPI_API_KEY", "")
+    # .strip() handles accidental newlines/spaces from HF Secrets.
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "").strip()
+    SERPAPI_API_KEY: str = os.getenv("SERPAPI_API_KEY", "").strip()
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
         "postgresql://postgres:postgres@localhost:5432/finance_agent"
-    )
+    ).strip()
 
 settings = Settings()
