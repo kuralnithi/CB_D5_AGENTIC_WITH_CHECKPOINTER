@@ -30,7 +30,30 @@ If you're using Neon as your cloud database:
 ### 5. Port Binding
 Hugging Face requires your app to listen on **Port 7860** and **Address 0.0.0.0**. Any other port will cause a "Starting..." hang.
 
-## Quick Start
-1. Add Secrets to Hugging Face: `DATABASE_URL`, `GROQ_API_KEY`.
-2. Push your code: `git push origin master:main`.
-3. Watch the logs! 📈
+## 🛠️ Troubleshooting: Real Problems We Solved
+
+Here are the exact issues we hit during development and how they are fixed in the current code:
+
+### 1. Memory Crash (`INVALID_CHAT_HISTORY`)
+*   **The Problem:** If the AI got interrupted while thinking (e.g., a tool timed out), the database session would get "stuck." Any new message you sent for that same session would cause a **500 Internal Server Error.**
+*   **The Fix:** We added a **Self-Healing rescue mechanism** in `agent_service.py`. Now, if the backend sees a corrupted thread, it instantly creates a fresh rescue session so your app never crashes!
+
+### 2. "I Forgot My Last Query"
+*   **The Problem:** Because everyone was sharing the same "default" ID, the memory was a mess! Also, when a session broke, it had to restart from zero. 
+*   **The Fix:** We integrated **Clerk Auth**. Now, the moment you sign in, your chat memory is tied to your **Unique User ID**. Your AI will remember your specific conversations even if you close the tab and come back later.
+
+### 3. Database "Connection Closed" (Neon Fix)
+*   **The Problem:** When the AI was thinking hard (reaching out to Groq or searching Google), the Neon database would think the connection was "idle" and kill it. This caused the tool result saving to fail.
+*   **The Fix:** We injected **TCP Keep-Alives** directly into the `database.py` connection string. The app now "pings" the database every few seconds while the AI is thinking to keep the line open.
+
+### 4. Running Locally vs Online
+*   **The Problem:** Moving code between target environments (Hugging Face vs Localhost) often breaks API connections.
+*   **The Fix:** We centralized the **VITE_API_URL** and updated the **CORS** policy to allow the frontend to talk to the backend on `localhost:8000` or the production cloud URL seamlessly.
+
+## 🚀 Quick Start
+1.  **Frontend:** Update your `.env` with `VITE_CLERK_PUBLISHABLE_KEY` and `VITE_API_URL`.
+2.  **Backend:** Add `DATABASE_URL`, `GROQ_API_KEY`, and `SERPAPI_API_KEY` to your secrets (Local or Cloud).
+3.  **Run:** Open two terminals...
+    *   `npm run dev` (Frontend)
+    *   `uvicorn main:app --reload` (Backend)
+4.  **Login & Enjoy!** 📈
