@@ -17,6 +17,6 @@ class Settings(BaseSettings):
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
         "postgresql://postgres:postgres@localhost:5432/finance_agent"
-    ).strip()
+    ).strip().replace("+psycopg", "").replace("+asyncpg", "")
 
 settings = Settings()
