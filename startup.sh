@@ -12,5 +12,5 @@ echo "[startup] Running database migrations..."
 python -m alembic stamp --purge 001_langgraph_setup
 python -m alembic upgrade head
 
-echo "[startup] Migrations complete. Starting uvicorn on port 7860..."
-exec uvicorn main:app --host 0.0.0.0 --port 7860
+echo "[startup] Migrations complete. Starting the server on port 7860..."
+exec python run.py
