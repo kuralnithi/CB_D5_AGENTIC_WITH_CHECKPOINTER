@@ -19,7 +19,7 @@ async def analyze_endpoint(
             raise HTTPException(status_code=403, detail="Unauthorized thread access")
 
         # Use our async service with support for thread-id (PostgreSQL checkpointing)
-        result = await analyze_stock(request.query, request.thread_id)
+        result = await analyze_stock(request.query, request.thread_id, request.model_id)
         return AnalyzeResponse(result=result)
     except HTTPException as e:
         raise e

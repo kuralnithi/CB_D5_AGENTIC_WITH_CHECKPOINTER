@@ -26,7 +26,7 @@ from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from app.core.llm import llm
+from app.core.llm import get_llm
 from app.core.database import db
 from app.services.tools.stock import get_stock_fundamentals
 from app.services.tools.news import search_news, yahoo_tool, wiki_tool
@@ -82,7 +82,8 @@ def _is_connection_error(exception: BaseException) -> bool:
 
 class FinBotService:
     def __init__(self):
-        self._agent = None
+        # Cache agents per model_id to avoid redundant initialization
+        self._agents: Dict[str, Any] = {}
         self._checkpointer = None
 
     async def get_checkpointer(self) -> AsyncPostgresSaver:
@@ -94,34 +95,29 @@ class FinBotService:
             logger.info("Checkpointer initialized")
         return self._checkpointer
 
-    async def get_agent(self):
-        """Lazily initialize the LangGraph agent with checkpointing."""
-        if not self._agent:
+    async def get_agent(self, model_id: str = "llama-3.3-70b-versatile"):
+        """Lazily initialize or retrieve the LangGraph agent for a specific model."""
+        if model_id not in self._agents:
             checkpointer = await self.get_checkpointer()
-            self._agent = create_react_agent(
+            llm = get_llm(model_id)
+            self._agents[model_id] = create_react_agent(
                 model=llm,
                 tools=tools,
                 checkpointer=checkpointer,
                 prompt=SYSTEM_PROMPT
             )
-            logger.info("Agent initialized")
-        return self._agent
+            logger.info(f"Agent initialized with model: {model_id}")
+        return self._agents[model_id]
 
     async def _reset(self):
-        """Reset cached agent and checkpointer so next call gets fresh connections."""
-        logger.warning("Resetting checkpointer and agent (stale connection detected)")
-        self._agent = None
+        """Reset cached agents so next call gets fresh connections."""
+        logger.warning("Resetting all agents (stale connection detected)")
+        self._agents = {}
         self._checkpointer = None
 
-    async def analyze_stock(self, query: str, thread_id: str) -> str:
+    async def analyze_stock(self, query: str, thread_id: str, model_id: str = "llama-3.3-70b-versatile") -> str:
         """
-        Execute the agent for a given query and thread ID.
-
-        Production pattern: retry with exponential backoff.
-        - Attempt 1: immediate
-        - Attempt 2: wait 1s
-        - Attempt 3: wait 2s
-        On connection errors, reset the agent/checkpointer before retrying.
+        Execute the agent for a given query, thread ID, and model ID.
         """
         config = {"configurable": {"thread_id": thread_id}}
         start_time = time.monotonic()
@@ -129,7 +125,7 @@ class FinBotService:
         last_exception = None
         for attempt in range(1, 4):  # 3 attempts
             try:
-                agent = await self.get_agent()
+                agent = await self.get_agent(model_id)
 
                 logger.info(
                     "Agent invocation starting",
@@ -160,7 +156,7 @@ class FinBotService:
                         extra={"thread_id": thread_id, "fresh_thread_id": fresh_thread_id}
                     )
                     config = {"configurable": {"thread_id": fresh_thread_id}}
-                    agent = await self.get_agent()
+                    agent = await self.get_agent(model_id)
                     response = await agent.ainvoke(
                         {"messages": [HumanMessage(content=query)]},
                         config=config
@@ -196,6 +192,6 @@ class FinBotService:
 fin_bot_service = FinBotService()
 
 
-async def analyze_stock(query: str, thread_id: str = "default-thread") -> str:
+async def analyze_stock(query: str, thread_id: str = "default-thread", model_id: str = "llama-3.3-70b-versatile") -> str:
     """Public API — backwards compatible wrapper."""
-    return await fin_bot_service.analyze_stock(query, thread_id)
+    return await fin_bot_service.analyze_stock(query, thread_id, model_id)

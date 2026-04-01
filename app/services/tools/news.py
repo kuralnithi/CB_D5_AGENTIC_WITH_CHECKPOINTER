@@ -20,9 +20,10 @@ serp = SerpAPIWrapper(
 def search_news(query: str) -> str:
     """
     Search last-24h Google News via SerpAPI.
-    Returns news results with URLs.
+    Returns news results with URLs (truncated to 4000 chars for efficiency).
     """
-    return serp.run(query)
+    results = serp.run(query)
+    return results[:4000] if results else ""
 
 yahoo_tool = YahooFinanceNewsTool()
 wiki_tool = WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper())
