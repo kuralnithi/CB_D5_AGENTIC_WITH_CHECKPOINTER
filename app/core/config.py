@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
         "postgresql://postgres:postgres@localhost:5432/finance_agent"
-    ).strip().replace("+psycopg", "").replace("+asyncpg", "")
+    ).strip()
 
     # Logging & environment
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").strip().upper()

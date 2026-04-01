@@ -19,14 +19,29 @@ logger = logging.getLogger("finbot.database")
 
 class Database:
     def __init__(self, dsn: str):
-        # Neon serverless drops idle SSL connections aggressively.
-        # We inject TCP keepalive parameters directly into the DSN string
+        """
+        Initialize the database pool.
+        Cleans the DSN to remove driver prefixes (like +psycopg) that SQLAlchemy uses.
+        """
+        # 1. Clean the schema (strip +psycopg, +asyncpg, etc.)
+        cleaned_dsn = dsn
+        if cleaned_dsn.startswith("postgresql+"):
+            cleaned_dsn = "postgresql://" + cleaned_dsn.split("://", 1)[1]
+        elif cleaned_dsn.startswith("postgres+"):
+            cleaned_dsn = "postgres://" + cleaned_dsn.split("://", 1)[1]
+
+        # 2. Fix malformed sslmode if present (e.g. ?sslmode -> ?sslmode=require)
+        if "?sslmode" in cleaned_dsn and "?sslmode=" not in cleaned_dsn:
+            sep = "&" if "&" in cleaned_dsn else "="
+            cleaned_dsn = cleaned_dsn.replace("?sslmode", "?sslmode=require")
+
+        # 3. Inject TCP keepalive parameters for Neon serverless
         # (psycopg3 reads them from conninfo, not from kwargs).
-        neon_safe_dsn = dsn
-        if "keepalives" not in dsn:
-            sep = "&" if "?" in dsn else "?"
+        neon_safe_dsn = cleaned_dsn
+        if "keepalives" not in cleaned_dsn:
+            sep = "&" if "?" in cleaned_dsn else "?"
             neon_safe_dsn = (
-                f"{dsn}{sep}"
+                f"{cleaned_dsn}{sep}"
                 "keepalives=1"
                 "&keepalives_idle=30"
                 "&keepalives_interval=10"
