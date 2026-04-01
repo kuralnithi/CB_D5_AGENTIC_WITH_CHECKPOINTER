@@ -19,4 +19,11 @@ class Settings(BaseSettings):
         "postgresql://postgres:postgres@localhost:5432/finance_agent"
     ).strip().replace("+psycopg", "").replace("+asyncpg", "")
 
+    # Logging & environment
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").strip().upper()
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development").strip().lower()
+
+    # Request timeout (seconds) — abort requests slower than this
+    REQUEST_TIMEOUT: int = int(os.getenv("REQUEST_TIMEOUT", "60"))
+
 settings = Settings()
