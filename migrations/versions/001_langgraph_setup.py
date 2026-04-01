@@ -82,8 +82,8 @@ def upgrade() -> None:
     op.execute("CREATE INDEX IF NOT EXISTS checkpoint_blobs_thread_id_idx ON checkpoint_blobs(thread_id)")
     op.execute("CREATE INDEX IF NOT EXISTS checkpoint_writes_thread_id_idx ON checkpoint_writes(thread_id)")
 
-    # Mark LangGraph's internal migration table as fully applied (v=10)
-    op.execute("INSERT INTO checkpoint_migrations (v) VALUES (10) ON CONFLICT DO NOTHING")
+    # Mark LangGraph's internal migration table as fully applied (v=20)
+    op.execute("INSERT INTO checkpoint_migrations (v) VALUES (20) ON CONFLICT DO NOTHING")
 
 
 def downgrade() -> None:

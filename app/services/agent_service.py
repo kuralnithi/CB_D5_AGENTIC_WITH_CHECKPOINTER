@@ -91,7 +91,8 @@ class FinBotService:
         if not self._checkpointer:
             await db.open()
             self._checkpointer = AsyncPostgresSaver(db.get_pool())
-            await self._checkpointer.setup()
+            # Note: We do NOT call self._checkpointer.setup() here!
+            # The schema is managed exclusively via Alembic migrations.
             logger.info("Checkpointer initialized")
         return self._checkpointer
 
